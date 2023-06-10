@@ -51,7 +51,6 @@ exports.initShift = async () => {
   const facility = await facilityModel.find();
   const agent = await agentModel.find();
   const shift = await shiftModel.find();
-  console.log(facility[randomIntFromInterval(0, 4)]._id);
   if (shift.length === 0) {
     for (let i = 0; i < 100; i++) {
       let timeFrom = randomIntFromInterval(
@@ -59,11 +58,16 @@ exports.initShift = async () => {
         new Date("2022-12-31").getTime()
       );
 
+      let randFacilityID =
+        facility[randomIntFromInterval(0, facility.length - 1)]._id.toString();
+      let randAgentID =
+        agent[randomIntFromInterval(0, agent.length - 1)]._id.toString();
+
       let newShift = new shiftModel({
         TimeFrom: timeFrom,
         TimeTo: timeFrom + 3600 * 1000 * Math.floor(Math.random() * 10),
-        FacilityID: facility[randomIntFromInterval(0, 4)]._id.toString(),
-        AgnetID: agent[randomIntFromInterval(0, 3)]._id.toString(),
+        FacilityID: randFacilityID,
+        AgnetID: randAgentID,
         EmployeeName: employeeNames[randomIntFromInterval(0, 3)],
       });
 
@@ -106,11 +110,15 @@ exports.getShiftsByFacility = async (facilityID, quarter) => {
   }
 
   let filterValues = await shiftModel
-    .find({
-      FacilityID: facility[facilityID - 1]._id.toString(),
-      TimeFrom: { $gt: filterTimeFrom },
-      TimeTo: { $lt: filterTimeTo },
-    })
+    .aggregate([
+      {
+        $match: {
+          FacilityID: facility[facilityID - 1]._id.toString(),
+          TimeFrom: { $gt: filterTimeFrom },
+          TimeTo: { $lt: filterTimeTo },
+        },
+      },
+    ])
     .exec();
 
   for (let i = 0; i < agent.length; i++) {
@@ -164,7 +172,16 @@ exports.generateReport = async (agentArrayTime, companyName, date) => {
   doc.fontSize(18).text(`(${date})`, 260, 56);
   for (let i = 0; i < agent.length; i++) {
     positionY += 30;
-    doc.fontSize(20).text(agent[i].Name, 80, positionY);
+    doc
+      .fontSize(20)
+      .text(
+        agent[i].Name +
+          " " +
+          agentArrayTime[i].reduce((a, b) => a + b, 0) +
+          " hrs",
+        80,
+        positionY
+      );
     for (let j = 0; j < agent[i].Employee.length; j++) {
       positionY += 25;
       doc
